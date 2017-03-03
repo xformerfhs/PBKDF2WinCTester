@@ -19,13 +19,14 @@
 *
 * Author: Frank Schwab, DB Systel GmbH
 *
-* Version: 2.0.0
+* Version: 2.1.0
 *
 * Example program to show correct and incorrect password storage with the PBKDF2 function
 *
 * Changes:
 *     2015-05-26: V1.0.0: Created
 *     2015-09-22: V2.0.0: Have a choice of hash types
+*     2017-03-03: V2.1.0: Cleaned up data types for counts and lengths
 */
 
 /*
@@ -53,14 +54,14 @@
  * TOCTET is a data type that defines 8 binary bits and is *not* a character
  * (Welcome to the strange world of C).
  */
-typedef unsigned char TOCTET;
+typedef UCHAR TOCTET;
 
 /*
  * Define a default "unsuccessful" NT STATUS for initialization.
  * This is not a true NTSTATUS.
  */
-#ifndef STATUS_UNSUCCESSFUL
-#define STATUS_UNSUCCESSFUL (-1)
+#ifndef NTSTATUS_UNSUCCESSFUL
+#define NTSTATUS_UNSUCCESSFUL (-1)
 #endif
 
 /*
@@ -190,9 +191,9 @@ const TCHAR * const HEX_DIGITS = _T("0123456789ABCDEF");
 /*
  * Convert a byte buffer into a string of hexadecimal characters separated by blanks
  */
-TCHAR * bytesToHex(const TOCTET * const byteBuffer, const int bufferSize)
+TCHAR * bytesToHex(const TOCTET * const byteBuffer, const SIZE_T bufferSize)
 {
-	int resultSize = bufferSize * 3;
+	SIZE_T resultSize = bufferSize * 3;
 
 	TCHAR * pResult = (TCHAR *)malloc(resultSize * sizeof(TCHAR));
 
@@ -241,13 +242,13 @@ TOCTET getHexCharValue(const TCHAR hexChar)
 /*
  * Convert a string of upper case hexadecimal characters into a byte array
  */
-TOCTET * hexStringToByteArray(const TCHAR * const hexText, const int hexTextSize, int * const byteArraySize, TCHAR * const errorBuffer, const SIZE_T errorBufferSize)
+TOCTET * hexStringToByteArray(const TCHAR * const hexText, const SIZE_T hexTextSize, SIZE_T * const byteArraySize, TCHAR * const errorBuffer, const SIZE_T errorBufferSize)
 {
 	RESET_ERROR_MSG;
 
 	bool isHexTextSizeOdd = ((hexTextSize & 1) != 0);
 
-	int allocationSize = (hexTextSize >> 1);
+	SIZE_T allocationSize = (hexTextSize >> 1);
 
 	if (isHexTextSizeOdd)
 		allocationSize++;
@@ -265,7 +266,7 @@ TOCTET * hexStringToByteArray(const TCHAR * const hexText, const int hexTextSize
 
 		bool isLowNibble = isHexTextSizeOdd;
 
-		for (int actPos = 1; actPos <= hexTextSize; actPos++)
+		for (SIZE_T actPos = 1; actPos <= hexTextSize; actPos++)
 		{
 			actValue = getHexCharValue(*pActChar);
 
@@ -281,7 +282,7 @@ TOCTET * hexStringToByteArray(const TCHAR * const hexText, const int hexTextSize
 			}
 			else
 			{
-				_stprintf_s(errorBuffer, errorBufferSize, _T("Invalid hex character \'%c\' at position %d of hex string\n"), *pActChar, actPos);
+				_stprintf_s(errorBuffer, errorBufferSize, _T("Invalid hex character \'%c\' at position %zu of hex string\n"), *pActChar, actPos);
 				break;
 			}
 
@@ -291,7 +292,7 @@ TOCTET * hexStringToByteArray(const TCHAR * const hexText, const int hexTextSize
 		}
 	}
 	else
-		_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %d bytes for hex conversion byte array\n"), *byteArraySize);
+		_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %zu bytes for hex conversion byte array\n"), *byteArraySize);
 
 	return result;
 }
@@ -299,7 +300,7 @@ TOCTET * hexStringToByteArray(const TCHAR * const hexText, const int hexTextSize
 /*
  * Convert a string into upper case characters
  */
-void convertToUpperCase(TCHAR * const text, const int textSize)
+void convertToUpperCase(TCHAR * const text, const SIZE_T textSize)
 {
 	TCHAR * pActText = text;
 
@@ -314,9 +315,9 @@ void convertToUpperCase(TCHAR * const text, const int textSize)
 /*
  * Convert a string of hexadecimal characters into a byte array
  */
-void safeHexStringToByteArray(TCHAR * const hexText, TOCTET ** byteArray, int * const byteArraySize, TCHAR * const errorBuffer, const SIZE_T errorBufferSize)
+void safeHexStringToByteArray(TCHAR * const hexText, TOCTET ** byteArray, SIZE_T * const byteArraySize, TCHAR * const errorBuffer, const SIZE_T errorBufferSize)
 {
-	const int hexTextSize = _tcslen(hexText);
+	const SIZE_T hexTextSize = _tcslen(hexText);
 
 	convertToUpperCase(hexText, hexTextSize);
 
@@ -354,9 +355,9 @@ void getPasswordUTF16Encoding(const TCHAR * const password,
  * Convert the password from the native format (Unicode or ANSI) into the UTF-8 encoding as a byte array
  */
 void getPasswordUTF8Encoding(const TCHAR * const password,
-	const int passwordSize,
+	const SIZE_T passwordSize,
 	TOCTET ** passwordInUTF8,
-	int * const pPasswordInUTF8Size,
+	SIZE_T * const pPasswordInUTF8Size,
 	TCHAR * const errorBuffer,
 	const SIZE_T errorBufferSize)
 {
@@ -366,14 +367,14 @@ void getPasswordUTF8Encoding(const TCHAR * const password,
 	/*
  	 * If we are in Unicode mode we just convert the UTF-16 characters to UTF-8
 	 */
-	*pPasswordInUTF8Size = WideCharToMultiByte(CP_UTF8, 0, password, passwordSize, NULL, 0, NULL, NULL);
+	*pPasswordInUTF8Size = WideCharToMultiByte(CP_UTF8, 0, password, (int)passwordSize, NULL, 0, NULL, NULL);
 
 	*passwordInUTF8 = (TOCTET *)malloc(*pPasswordInUTF8Size);
 
 	if (*passwordInUTF8 != NULL)
-		WideCharToMultiByte(CP_UTF8, 0, password, passwordSize, (LPSTR)*passwordInUTF8, *pPasswordInUTF8Size, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, password, (int)passwordSize, (LPSTR)*passwordInUTF8, (int)*pPasswordInUTF8Size, NULL, NULL);
 	else
-		_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %d bytes for passwordInUTF8\n"), *pPasswordInUTF8Size);
+		_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %zu bytes for passwordInUTF8\n"), *pPasswordInUTF8Size);
 #else
 	/*
 	 * If we are in ANSI mode we first need to convert the ANSI characters to UTF-16 and then from UTF-16 to UTF-8
@@ -406,13 +407,13 @@ void getPasswordUTF8Encoding(const TCHAR * const password,
  * Calculate the value of PBKDF2 for a password in UTF-8 encoding, a salt as a byte array an an iteration count.
  */
 void calculatePBKDF2(TOCTET ** ppDerivedKey, 
-	unsigned int * const pDerivedKeySize, 
+	SIZE_T * const pDerivedKeySize, 
 	LPCWSTR pHashType,
 	TOCTET * pSalt, 
-	int saltSize, 
+	SIZE_T saltSize, 
 	int iterationCount, 
 	TOCTET * password, 
-	int passwordSize,
+	SIZE_T passwordSize,
 	TCHAR * const errorBuffer,
 	const SIZE_T errorBufferSize)
 {
@@ -420,7 +421,7 @@ void calculatePBKDF2(TOCTET ** ppDerivedKey,
 
 	ULONG outputSize;
 
-	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	NTSTATUS status = NTSTATUS_UNSUCCESSFUL;
 
 	const TCHAR * const apiErrorMessage = _T("Error 0x%x returned by %s\n");
 
@@ -436,10 +437,10 @@ void calculatePBKDF2(TOCTET ** ppDerivedKey,
 		// Get the size of the hash
 		if (NT_SUCCESS(status = BCryptGetProperty(handleHash,
 			BCRYPT_HASH_LENGTH,
-			(PUCHAR) pDerivedKeySize,
-			(ULONG) sizeof(int),
+			(PUCHAR)  pDerivedKeySize,
+			(ULONG)   sizeof(int),
 			(ULONG *) &outputSize,
-			(ULONG) 0)))
+			(ULONG)   0)))
 		{
 			// Allocate space for the hash result
 			*ppDerivedKey = (TOCTET *) malloc(*pDerivedKeySize);
@@ -450,22 +451,22 @@ void calculatePBKDF2(TOCTET ** ppDerivedKey,
 				if (!NT_SUCCESS(status = BCryptDeriveKeyPBKDF2(
 					handleHash,
 					password,
-					passwordSize,
-					(PUCHAR)pSalt,
-					saltSize,
-					(ULONGLONG)iterationCount,
-					(PUCHAR)*ppDerivedKey,
-					(ULONG)*pDerivedKeySize,
-					(ULONG)0)))
+					(ULONG)     passwordSize,
+					(PUCHAR)    pSalt,
+					(ULONG)     saltSize,
+					(ULONGLONG) iterationCount,
+					(PUCHAR)    *ppDerivedKey,
+					(ULONG)     *pDerivedKeySize,
+					(ULONG)     0)))
 					_stprintf_s(errorBuffer, errorBufferSize, apiErrorMessage, status, _T("BCryptDeriveKeyPBKDF2"));
 			}
 			else
-				_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %d bytes for hash value\n"), *pDerivedKeySize);
+				_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %zu bytes for hash value\n"), *pDerivedKeySize);
 		}
 		else
 			_stprintf_s(errorBuffer, errorBufferSize, apiErrorMessage, status, _T("BCryptGetProperty"));
 		
-		BCryptCloseAlgorithmProvider(handleHash, 0);
+		BCryptCloseAlgorithmProvider(handleHash, (ULONG) 0);
 	}
 	else
 		_stprintf_s(errorBuffer, errorBufferSize, apiErrorMessage, status, _T("BCryptOpenAlgorithmProvider"));
@@ -499,11 +500,11 @@ void writeBuffer(const HANDLE fileHandle, const bool isRedirected, TCHAR * const
 		CharToOem(text, text);
 #endif
 
-		WriteConsole(fileHandle, text, _tcslen(text), &charsWritten, NULL);  // This writes characters
+		WriteConsole(fileHandle, text, (DWORD) _tcslen(text), &charsWritten, NULL);  // This writes characters
 	}
 	else
 	{
-		WriteFile(fileHandle, text, _tcslen(text) * sizeof(TCHAR), &charsWritten, NULL); // But this writes bytes
+		WriteFile(fileHandle, text, (DWORD) _tcslen(text) * sizeof(TCHAR), &charsWritten, NULL); // But this writes bytes
 	}
 }
 
@@ -551,7 +552,7 @@ int _tmain(const int argc, TCHAR * const argv[])
 		// 2. Get the salt
 
 		int salt;
-		int saltArraySize;
+		SIZE_T saltArraySize;
 		TOCTET * saltArray;
 
 		if (doItRight) {
@@ -594,9 +595,9 @@ int _tmain(const int argc, TCHAR * const argv[])
 
 		//Attention: password has been converted from OEM code page to Windows character set (A) or UTF-16 (W)!
 		const TCHAR * const password = ARGV_PASSWORD;
-		const int passwordSize = _tcslen(password);
+		const SIZE_T passwordSize = _tcslen(password);
 
-		int passwordBytesSize = 0;
+		SIZE_T passwordBytesSize = 0;
 		TOCTET * passwordBytes = NULL;
 
 		if (doItRight)
@@ -604,7 +605,7 @@ int _tmain(const int argc, TCHAR * const argv[])
 			/*
  			 * If we should do it right we now get the UTF-8 encoding of the password
  			 */
-			int passwordInUTF8Size = 0;
+			SIZE_T passwordInUTF8Size = 0;
 			TOCTET * passwordInUTF8 = NULL;
 
 			getPasswordUTF8Encoding(password, passwordSize, &passwordInUTF8, &passwordInUTF8Size, errorBuffer, errorBufferSize);
@@ -634,7 +635,7 @@ int _tmain(const int argc, TCHAR * const argv[])
 		/*
 		 * Finally we get to the point. Here we calculate the PBKDF2 and mesaure the time duration needed to calculate it
 		 */
-		unsigned int derivedKeySize = 0;
+		SIZE_T derivedKeySize = 0;
 		TOCTET * pDerivedKey = NULL;
 
 		startTimer();
