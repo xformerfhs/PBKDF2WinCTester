@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, DB Systel GmbH
+* Copyright (c) 2017, DB Systel GmbH
 * All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -27,6 +27,7 @@
 *     2015-05-26: V1.0.0: Created
 *     2015-09-22: V2.0.0: Have a choice of hash types
 *     2017-03-03: V2.1.0: Cleaned up data types for counts and lengths
+*     2017-03-03: V2.2.0: Removed unnecessary methods and make hex char conversion to byte a bit faster
 */
 
 /*
@@ -86,10 +87,10 @@ typedef UCHAR TOCTET;
 /*
  * Argument macros
  */
-#define ARGV_HASH_TYPE argv[1]
-#define ARGV_SALT argv[2]
+#define ARGV_HASH_TYPE       argv[1]
+#define ARGV_SALT            argv[2]
 #define ARGV_ITERATION_COUNT argv[3]
-#define ARGV_PASSWORD argv[4]
+#define ARGV_PASSWORD        argv[4]
 
 /*
  * Macros for error checking
@@ -141,10 +142,12 @@ long long getElapsedTicks()
  */
 double getElapsedTime()
 {
+   long long elapsedTicks = getElapsedTicks();
+
 	if (tickDuration == 0.0)
 		getTickDuration();
 
-	return (getElapsedTicks() * tickDuration);
+	return (elapsedTicks * tickDuration);
 }
 
 
@@ -227,16 +230,34 @@ TCHAR * bytesToHex(const TOCTET * const byteBuffer, const SIZE_T bufferSize)
  */
 TOCTET getHexCharValue(const TCHAR hexChar)
 {
-	if ((hexChar >= _T('0')) && (hexChar <= _T('9')))
-		return (TOCTET)(hexChar - _T('0'));
-	else
-		if ((hexChar >= _T('A')) && (hexChar <= _T('F')))
-			return (TOCTET)(hexChar - _T('A') + 10);
-		else
-			if ((hexChar >= _T('a')) && (hexChar <= _T('f')))
-				return (TOCTET)(hexChar - _T('a') + 10);
-			else
-				return 255;
+   int workValue;
+   
+   /*
+    * This method works on a very low level. It subtracts the base values
+    * of the valid characters to obtain the corresponding byte value.
+    */
+   workValue = (int)hexChar - (int)_T('0');
+
+   if (workValue >= 0)
+      if (workValue <= 9)
+         return (TOCTET) workValue;
+      else
+      {
+         workValue -= _T('A') - _T('0') - 10;
+         if (workValue >= 10)
+            if (workValue <= 15)
+               return (TOCTET) workValue;
+            else
+            {
+               workValue -= _T('a') - _T('A');
+               if (workValue >= 10)
+                  if (workValue <= 15)
+                     return (TOCTET) workValue;
+            }
+      }
+
+   // If we get here the character was not a valid hex character
+   return (TOCTET) 255;
 }
 
 /*
@@ -282,7 +303,7 @@ TOCTET * hexStringToByteArray(const TCHAR * const hexText, const SIZE_T hexTextS
 			}
 			else
 			{
-				_stprintf_s(errorBuffer, errorBufferSize, _T("Invalid hex character \'%c\' at position %zu of hex string\n"), *pActChar, actPos);
+				_stprintf_s(errorBuffer, errorBufferSize, _T("Invalid hex character \'%c\' at position %zu of hex string \"%s\"\n"), *pActChar, actPos, hexText);
 				break;
 			}
 
@@ -298,28 +319,11 @@ TOCTET * hexStringToByteArray(const TCHAR * const hexText, const SIZE_T hexTextS
 }
 
 /*
- * Convert a string into upper case characters
- */
-void convertToUpperCase(TCHAR * const text, const SIZE_T textSize)
-{
-	TCHAR * pActText = text;
-
-	for (int i = 1; i <= textSize; i++)
-	{
-		*pActText = toupper(*pActText);
-
-		*pActText++;
-	}
-}
-
-/*
  * Convert a string of hexadecimal characters into a byte array
  */
 void safeHexStringToByteArray(TCHAR * const hexText, TOCTET ** byteArray, SIZE_T * const byteArraySize, TCHAR * const errorBuffer, const SIZE_T errorBufferSize)
 {
 	const SIZE_T hexTextSize = _tcslen(hexText);
-
-	convertToUpperCase(hexText, hexTextSize);
 
 	*byteArray = hexStringToByteArray(hexText, hexTextSize, byteArraySize, errorBuffer, errorBufferSize);
 }
@@ -516,7 +520,7 @@ LPCWSTR HASH_ALGORITHM[5] = { BCRYPT_SHA1_ALGORITHM, BCRYPT_SHA256_ALGORITHM, BC
  */
 int _tmain(const int argc, TCHAR * const argv[])
 {
-	const SIZE_T errorBufferSize = 499;
+   const SIZE_T errorBufferSize = 499;
 	TCHAR errorBuffer[errorBufferSize + 1];  // Bloody stupid null termination character
 
 	int returnValue = 0;
@@ -633,7 +637,7 @@ int _tmain(const int argc, TCHAR * const argv[])
 		}
 
 		/*
-		 * Finally we get to the point. Here we calculate the PBKDF2 and mesaure the time duration needed to calculate it
+		 * Finally we get to the point. Here we calculate the PBKDF2 and measure the time duration needed to calculate it
 		 */
 		SIZE_T derivedKeySize = 0;
 		TOCTET * pDerivedKey = NULL;
