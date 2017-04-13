@@ -59,3 +59,15 @@ which yields
 HashType: SHA1, Salt: 04 DF 0B 92, IterationCount: 123456, Password: 'Veyron', PBKDF2: 57 60 62 1F 2C 20 23 57 87 08 9D 40 4B 9D 26 EA B0 6B 9B C6
 Duration: 127 ms
 ```
+
+## Contributing
+
+Feel free to submit a pull request with new features, improvements on tests or documentation and bug fixes.
+
+## Contact
+
+Frank Schwab ([Mail](mailto:frank.schwab@deutschebahn.com "Mail"))
+
+## License
+
+PBKDF2WinCTester is released under the 2-clause BSD license.
