@@ -70,4 +70,4 @@ Frank Schwab ([Mail](mailto:frank.schwab@deutschebahn.com "Mail"))
 
 ## License
 
-PBKDF2WinCTester is released under the 2-clause BSD license.
+PBKDF2WinCTester is released under the 2-clause BSD license. See "LICENSE" for details.
