@@ -1,5 +1,7 @@
 # PBKDF2WinCTester
 
+Originally, this repository was located in the "dbsystel" organization. With their kind permission, I moved it to my space in August 2023. The [original repository](https://github.com/dbsystel/PBKDF2WinCTester) will no longer be maintained.
+
 This is an example program to test various PBKDF2 functions in C for Windows (Visual Studio). It was created to show 1. how to use the PBKDF2 functions in C to encode passwords and 2. to play with various parameters to see the result.
 
 The program uses the Windows CNG Crypto API.
