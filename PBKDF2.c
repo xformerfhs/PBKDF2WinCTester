@@ -156,7 +156,7 @@ double getElapsedTime() {
 /*
  * Convert a string into an integer with bounds checking
  */
-int getIntegerArg(const TCHAR* pArgName, const TCHAR* pArg, const int minValue, const int maxValue, TCHAR* const errorBuffer, const SIZE_T errorBufferSize) {
+int getIntegerArg(const TCHAR* pArgName, const TCHAR* pArg, const int minValue, const int maxValue, TCHAR* const errorBuffer, const int errorBufferSize) {
 	int result;
 
 	RESET_ERROR_MSG;
@@ -192,8 +192,8 @@ const TCHAR* const HEX_DIGITS = _T("0123456789ABCDEF");
 /*
  * Convert a byte buffer into a string of hexadecimal characters separated by blanks
  */
-TCHAR* bytesToHex(const TOCTET* const byteBuffer, const SIZE_T bufferSize) {
-	SIZE_T resultSize = bufferSize * 3;
+TCHAR* bytesToHex(const TOCTET* const byteBuffer, const int bufferSize) {
+	int resultSize = bufferSize * 3;
 
 	TCHAR* pResult = (TCHAR*)malloc(resultSize * sizeof(TCHAR));
 
@@ -261,15 +261,15 @@ TOCTET* hexStringToByteArray(const TCHAR* const pHexText, const int hexTextSize,
 	BOOLEAN isHexTextSizeOdd = ((hexTextSize & 1) != 0);
 
 	int allocationSize = (hexTextSize >> 1);
-
+	
 	if (isHexTextSizeOdd)
 		allocationSize++;
+	
+	*pByteArraySize = allocationSize;
 
-	TOCTET* result = (TOCTET*)malloc(allocationSize);
+	TOCTET* result = (TOCTET*) malloc(allocationSize);
 
 	if (result != NULL) {
-		*pByteArraySize = allocationSize;
-
 		const TCHAR* pActChar = pHexText;
 		TOCTET* pActByte = result;
 		TOCTET actValue;
@@ -277,7 +277,7 @@ TOCTET* hexStringToByteArray(const TCHAR* const pHexText, const int hexTextSize,
 
 		BOOLEAN isLowNibble = isHexTextSizeOdd;
 
-		for (SIZE_T actPos = 1; actPos <= hexTextSize; actPos++) {
+		for (int actPos = 1; actPos <= hexTextSize; actPos++) {
 			actValue = getHexCharValue(*pActChar);
 
 			if (actValue <= 15) {
@@ -287,7 +287,7 @@ TOCTET* hexStringToByteArray(const TCHAR* const pHexText, const int hexTextSize,
 				} else
 					byteValue = (TOCTET) (actValue << 4);
 			} else {
-				_stprintf_s(errorBuffer, errorBufferSize, _T("Invalid hex character \'%c\' at position %zu of hex string \"%s\"\n"), *pActChar, actPos, pHexText);
+				_stprintf_s(errorBuffer, errorBufferSize, _T("Invalid hex character \'%c\' at position %d of hex string \"%s\"\n"), *pActChar, actPos, pHexText);
 				break;
 			}
 
@@ -319,7 +319,7 @@ void getPasswordUTF16Encoding(const TCHAR* const password,
 										wchar_t** passwordInUTF16,
 										int* const pPasswordInUTF16Size,
 										TCHAR* const errorBuffer,
-										const SIZE_T errorBufferSize) {
+										const int errorBufferSize) {
 	RESET_ERROR_MSG;
 
 	int bufferSize;
@@ -336,6 +336,22 @@ void getPasswordUTF16Encoding(const TCHAR* const password,
 }
 #endif
 
+void getPasswordUTF8EncodingFromUTF16(const TCHAR* const password,
+												  const int passwordSize,
+												  TOCTET** passwordInUTF8, 
+												  int* const pPasswordInUTF8Size, 
+												  TCHAR* const errorBuffer,
+												  const int errorBufferSize) {
+	*pPasswordInUTF8Size = WideCharToMultiByte(CP_UTF8, 0, password, passwordSize, NULL, 0, NULL, NULL);
+
+	*passwordInUTF8 = (TOCTET*)malloc(*pPasswordInUTF8Size);
+
+	if (*passwordInUTF8 != NULL)
+		WideCharToMultiByte(CP_UTF8, 0, password, passwordSize, (LPSTR)*passwordInUTF8, *pPasswordInUTF8Size, NULL, NULL);
+	else
+		_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %d bytes for passwordInUTF8\n"), *pPasswordInUTF8Size);
+}
+
 /*
  * Convert the password from the native format (Unicode or ANSI) into the UTF-8 encoding as a byte array
  */
@@ -351,14 +367,7 @@ void getPasswordUTF8Encoding(const TCHAR* const password,
 	/*
 	 * If we are in Unicode mode we just convert the UTF-16 characters to UTF-8
 	 */
-	* pPasswordInUTF8Size = WideCharToMultiByte(CP_UTF8, 0, password, (int)passwordSize, NULL, 0, NULL, NULL);
-
-	*passwordInUTF8 = (TOCTET*)malloc(*pPasswordInUTF8Size);
-
-	if (*passwordInUTF8 != NULL)
-		WideCharToMultiByte(CP_UTF8, 0, password, (int)passwordSize, (LPSTR)*passwordInUTF8, (int)*pPasswordInUTF8Size, NULL, NULL);
-	else
-		_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %zu bytes for passwordInUTF8\n"), *pPasswordInUTF8Size);
+	getPasswordUTF8EncodingFromUTF16(password, passwordSize, passwordInUTF8, pPasswordInUTF8Size, errorBuffer, errorBufferSize);
 #else
 	/*
 	 * If we are in ANSI mode we first need to convert the ANSI characters to UTF-16 and then from UTF-16 to UTF-8
@@ -372,16 +381,9 @@ void getPasswordUTF8Encoding(const TCHAR* const password,
 
 	if (passwordInUnicode != NULL) {
 		// Then convert UTF-16 to UTF-8
-		*pPasswordInUTF8Size = WideCharToMultiByte(CP_UTF8, 0, passwordInUnicode, passwordInUnicodeSize, NULL, 0, NULL, NULL);
+		getPasswordUTF8EncodingFromUTF16(passwordInUnicode, passwordInUnicodeSize, passwordInUTF8, pPasswordInUTF8Size, errorBuffer, errorBufferSize);
 
-		*passwordInUTF8 = (TOCTET*)malloc(*pPasswordInUTF8Size);
-
-		if (*passwordInUTF8 != NULL)
-			WideCharToMultiByte(CP_UTF8, 0, passwordInUnicode, passwordInUnicodeSize, (LPSTR)*passwordInUTF8, *pPasswordInUTF8Size, NULL, NULL);
-		else
-			_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %d bytes for passwordInUTF8\n"), *pPasswordInUTF8Size);
-
-		free((void*)passwordInUnicode);
+		free((void*) passwordInUnicode);
 	}
 #endif
 }
@@ -390,15 +392,15 @@ void getPasswordUTF8Encoding(const TCHAR* const password,
  * Calculate the value of PBKDF2 for a password in UTF-8 encoding, a salt as a byte array an an iteration count.
  */
 void calculatePBKDF2(TOCTET** ppDerivedKey,
-							SIZE_T* const pDerivedKeySize,
+							int* const pDerivedKeySize,
 							LPCWSTR pHashType,
 							TOCTET* pSalt,
-							SIZE_T saltSize,
+							int saltSize,
 							int iterationCount,
 							TOCTET* password,
-							SIZE_T passwordSize,
+							int passwordSize,
 							TCHAR* const errorBuffer,
-							const SIZE_T errorBufferSize) {
+							const int errorBufferSize) {
 	BCRYPT_ALG_HANDLE handleHash = NULL;
 
 	ULONG outputSize;
@@ -439,7 +441,7 @@ void calculatePBKDF2(TOCTET** ppDerivedKey,
 					(ULONG)0)))
 					_stprintf_s(errorBuffer, errorBufferSize, apiErrorMessage, status, _T("BCryptDeriveKeyPBKDF2"));
 			} else
-				_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %zu bytes for hash value\n"), *pDerivedKeySize);
+				_stprintf_s(errorBuffer, errorBufferSize, _T("Could not allocate %d bytes for hash value\n"), *pDerivedKeySize);
 		} else
 			_stprintf_s(errorBuffer, errorBufferSize, apiErrorMessage, status, _T("BCryptGetProperty"));
 
@@ -596,7 +598,7 @@ int _tmain(const int argc, TCHAR* const argv[]) {
 		/*
 		 * Finally we get to the point. Here we calculate the PBKDF2 and measure the time duration needed to calculate it
 		 */
-		SIZE_T derivedKeySize = 0;
+		int derivedKeySize = 0;
 		TOCTET* pDerivedKey = NULL;
 
 		startTimer();
